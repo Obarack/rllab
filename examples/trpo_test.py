@@ -1,17 +1,16 @@
 from rllab.algos.trpo import TRPO
 from rllab.baselines.linear_feature_baseline import LinearFeatureBaseline
 from rllab.envs.mujoco.swimmer_env import SwimmerEnv
+from rllab.envs.mujoco.swimmer_env import SwimmerEnv
+from rllab.envs.mujoco.maze.point_maze_env import PointMazeEnv
 from rllab.envs.gym_env import GymEnv
 
 from rllab.envs.normalized_env import normalize
 from rllab.policies.gaussian_mlp_policy import GaussianMLPPolicy
 
-from rllab.envs.mujoco.maze.ant_maze_env import AntMazeEnv
-from rllab.envs.mujoco.ant_env import AntEnv
+env = normalize(GymEnv("Reacher3d-v0"))
 
-env = normalize(SwimmerEnv())
-# env = normalize(AntMazeEnv())
-# env = normalize(GymEnv("FetchReach-v1"))
+
 
 policy = GaussianMLPPolicy(
     env_spec=env.spec,
@@ -31,4 +30,4 @@ algo = TRPO(
     discount=0.995,
     step_size=0.01,
 )
-algo.train()
+algo.train_mf()

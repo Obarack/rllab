@@ -19,9 +19,6 @@ class AntEnv(MujocoEnv, Serializable):
         Serializable.__init__(self, *args, **kwargs)
 
     def get_current_obs(self):
-        # print("hi")
-        # print(self.get_body_com("torso"))
-        # b = np.zeros(6)
         return np.concatenate([
             self.model.data.qpos.flat,
             self.model.data.qvel.flat,

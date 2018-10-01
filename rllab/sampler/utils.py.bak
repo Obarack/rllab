@@ -3,18 +3,11 @@ from rllab.misc import tensor_utils
 import time
 
 
-
-
-
 def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
-            always_return_paths=True):
-    violation_cost=0
-    boundary_violation_cost=0
+            always_return_paths=False):
     observations = []
     actions = []
     rewards = []
-    succ_rewards=[]
-    succ_rate=0
     agent_infos = []
     env_infos = []
     o = env.reset()
@@ -27,7 +20,6 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
         next_o, r, d, env_info = env.step(a)
         observations.append(env.observation_space.flatten(o))
         rewards.append(r)
-        succ_rewards.append(r)
         actions.append(env.action_space.flatten(a))
         agent_infos.append(agent_info)
         env_infos.append(env_info)
@@ -41,12 +33,6 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
             time.sleep(timestep / speedup)
     if animated and not always_return_paths:
         return
-    succ_rate=1
-
-    sum=0
-    for i in range(len(rewards)):
-        sum+=rewards[i]
-    print("Episode Reward : ",sum)
 
     return dict(
         observations=tensor_utils.stack_tensor_list(observations),
@@ -54,8 +40,4 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
         rewards=tensor_utils.stack_tensor_list(rewards),
         agent_infos=tensor_utils.stack_tensor_dict_list(agent_infos),
         env_infos=tensor_utils.stack_tensor_dict_list(env_infos),
-        violation_cost=violation_cost,
-        boundary_violation_cost=boundary_violation_cost,
-        succ_return=succ_rewards,
-        succ_rate=succ_rate,
     )

@@ -27,7 +27,7 @@ def run_task(*_):
         discount=0.99,
         step_size=0.01,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
-        #plot=True
+        plot=True
     )
     algo.train()
 
@@ -41,5 +41,5 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    #plot=True
+    plot=True
 )

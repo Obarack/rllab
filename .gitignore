@@ -37,3 +37,9 @@ blackbox
 rllab/config_personal.py
 *.swp
 sandbox
+
+rllab\.egg-info/
+
+scripts/vendor/mujoco/mjkey\.txt
+
+gym

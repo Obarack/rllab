@@ -6,11 +6,6 @@ from rllab.misc import tensor_utils
 import pickle
 import numpy as np
 
-try:
-    import Utils as UT
-except:
-    pass
-
 
 def _worker_init(G, id):
     if singleton_pool.n_parallel > 1:
@@ -99,31 +94,13 @@ def _worker_collect_one_path(G, max_path_length, scope=None):
     path = rollout(G.env, G.policy, max_path_length)
     return path, len(path["rewards"])
 
-#------------------------method that uses the constrained MPC---------------------
-def _worker_collect_one_path_constrained(G,dyn_model,max_path_length, scope=None,policy=None,rau=None,delta=0,constraint_fn=None,constraint_cost_fn=None,HCMPC_Activation=True):
-    G = _get_scoped_G(G, scope)
-    if(HCMPC_Activation):
-        path = UT.constrained_rollout(G.env, G.policy,dyn_model, max_path_length,policy=policy,rau=rau,delta=delta,constraint_fn=constraint_fn,constraint_cost_fn=constraint_cost_fn)
-    else:
-        path = UT.constrained_rollout_MF(G.env, G.policy, max_path_length)
-    return path, len(path["rewards"])
-
 
 def sample_paths(
         policy_params,
         max_samples,
         max_path_length=np.inf,
-        dyn_model=None,       #Updated
         env_params=None,
-        scope=None,
-        policy=None,          #Updated
-        rau=None,             #Updated
-        delta=0,              #Updated
-        constraint_fn=None,   #Updated
-        constraint_cost_fn=None,#Updated
-        HCMPC_Activation=False, #Updated
-        Constrained=False,      #Updated for Constrained Algorithms
-        ):
+        scope=None):
     """
     :param policy_params: parameters for the policy. This will be updated on each worker process
     :param max_samples: desired maximum number of samples to be collected. The actual number of collected samples
@@ -141,22 +118,12 @@ def sample_paths(
             _worker_set_env_params,
             [(env_params, scope)] * singleton_pool.n_parallel
         )
-
-#Updated
-    if(Constrained):
-        return singleton_pool.run_collect(
-            _worker_collect_one_path_constrained,
-            threshold=max_samples,
-            args=(dyn_model,max_path_length, scope,policy,rau,delta,constraint_fn,constraint_cost_fn,HCMPC_Activation),
-            show_prog_bar=True
-        )
-    else:
-        return singleton_pool.run_collect(
-            _worker_collect_one_path,
-            threshold=max_samples,
-            args=(max_path_length, scope),
-            show_prog_bar=True
-        )
+    return singleton_pool.run_collect(
+        _worker_collect_one_path,
+        threshold=max_samples,
+        args=(max_path_length, scope),
+        show_prog_bar=True
+    )
 
 
 def truncate_paths(paths, max_samples):

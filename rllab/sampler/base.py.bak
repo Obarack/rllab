@@ -48,12 +48,6 @@ class BaseSampler(Sampler):
     def process_samples(self, itr, paths):
         baselines = []
         returns = []
-        #---------------Updated by myself---------------
-        violation_cost=[]
-        boundary_violation_cost=[]
-        succ_rate=0
-        succ_return=[]
-        # log_liklihood=[]
 
         if hasattr(self.algo.baseline, "predict_n"):
             all_path_baselines = self.algo.baseline.predict_n(paths)
@@ -70,17 +64,6 @@ class BaseSampler(Sampler):
             path["returns"] = special.discount_cumsum(path["rewards"], self.algo.discount)
             baselines.append(path_baselines[:-1])
             returns.append(path["returns"])
-            #-------- Updated by myself----------------
-            violation_cost.append(path["violation_cost"])
-            boundary_violation_cost.append(path["boundary_violation_cost"])
-            # log_liklihood.append(path["log_likelihood"])
-            succ_rate+=path["succ_rate"]
-            if not (path["succ_return"]==0):
-                succ_return.append(path["succ_return"])
-
-        succ_rate=succ_rate/len(paths)
-
-
 
         ev = special.explained_variance_1d(
             np.concatenate(baselines),
@@ -118,10 +101,6 @@ class BaseSampler(Sampler):
                 env_infos=env_infos,
                 agent_infos=agent_infos,
                 paths=paths,
-                violation_cost=np.array(violation_cost),
-                boundary_violation_cost=np.array(boundary_violation_cost),
-                success_rate=succ_rate,
-                successful_AverageReturn=np.array(succ_return),
             )
         else:
             max_path_length = max([len(path["advantages"]) for path in paths])
@@ -179,10 +158,6 @@ class BaseSampler(Sampler):
                 agent_infos=agent_infos,
                 env_infos=env_infos,
                 paths=paths,
-                violation_cost=np.array(violation_cost),
-                boundary_violation_cost=np.array(boundary_violation_cost),
-                success_rate=succ_rate,
-                successful_AverageReturn=np.array(succ_return),
             )
 
         logger.log("fitting baseline...")
@@ -203,7 +178,5 @@ class BaseSampler(Sampler):
         logger.record_tabular('StdReturn', np.std(undiscounted_returns))
         logger.record_tabular('MaxReturn', np.max(undiscounted_returns))
         logger.record_tabular('MinReturn', np.min(undiscounted_returns))
-        analysis_data=dict(Iteration=itr,AverageDiscountedReturn=average_discounted_return,AverageReturn=np.mean(undiscounted_returns),ExplainedVariance=ev,NumTrajs=len(paths),Entropy=ent,
-                                Perplexity=np.exp(ent),StdReturn=np.std(undiscounted_returns),MaxReturn=np.max(undiscounted_returns),MinReturn=np.min(undiscounted_returns) )
-        
-        return samples_data,analysis_data
+
+        return samples_data

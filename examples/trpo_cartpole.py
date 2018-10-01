@@ -18,9 +18,9 @@ algo = TRPO(
     env=env,
     policy=policy,
     baseline=baseline,
-    batch_size=4000,
+    batch_size=5000,
     max_path_length=100,
-    n_itr=40,
+    n_itr=100,
     discount=0.99,
     step_size=0.01,
 )

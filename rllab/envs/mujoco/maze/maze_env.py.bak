@@ -89,7 +89,7 @@ class MazeEnv(ProxyEnv, Serializable):
                         material="",
                         contype="1",
                         conaffinity="1",
-                        rgba="0.7 0.5 0.7 1" , gap="1"   #0.4 0.4 0.4
+                        rgba="0.4 0.4 0.4 1"
                     )
 
         torso = tree.find(".//body[@name='torso']")
@@ -113,12 +113,6 @@ class MazeEnv(ProxyEnv, Serializable):
                                 geom2="block_%d_%d" % (i, j)
                             )
 
-        # distance = np .array([])
-        # for _ in range(14):
-        #     distance=np.append(distance , self.sim.data.contact[_].dist)
-        # print(distance)
-        # print(self.model.data.contact[0].dist)
-        
         _, file_path = tempfile.mkstemp(text=True)
         tree.write(file_path)  # here we write a temporal file with the robot specifications. Why not the original one??
 
@@ -129,9 +123,6 @@ class MazeEnv(ProxyEnv, Serializable):
         ProxyEnv.__init__(self, inner_env)  # here is where the robot env will be initialized
 
     def get_current_maze_obs(self):
-
-        
-
         # The observation would include both information about the robot itself as well as the sensors around its
         # environment
         robot_x, robot_y = self.wrapped_env.get_body_com("torso")[:2]
@@ -204,8 +195,6 @@ class MazeEnv(ProxyEnv, Serializable):
         return self.wrapped_env.get_current_obs()
 
     def get_current_obs(self):
-        print("hi")
-        print(self.wrapped_env.get_current_obs())
         return np.concatenate([self.wrapped_env.get_current_obs(),
                                self.get_current_maze_obs()
                                ])

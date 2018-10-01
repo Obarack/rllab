@@ -4,7 +4,6 @@ import gym.envs
 import gym.spaces
 import traceback
 import logging
-import numpy as np
 
 try:
     from gym.wrappers.monitoring import logger as monitor_logger
@@ -30,14 +29,6 @@ def convert_gym_space(space):
         return Discrete(n=space.n)
     elif isinstance(space, gym.spaces.Tuple):
         return Product([convert_gym_space(x) for x in space.spaces])
-    # added for robotics enviroments
-    elif isinstance(space, gym.spaces.Dict):
-        b_low = np.concatenate((space.spaces["desired_goal"].low,space.spaces["achieved_goal"].low,space.spaces["observation"].low))
-        b_high = np.concatenate((space.spaces["desired_goal"].high,space.spaces["achieved_goal"].high,space.spaces["observation"].high))
-        name = Box(low=b_low, high=b_high)
-        print(name)
-        return name
-    # end addition    
     else:
         raise NotImplementedError
 

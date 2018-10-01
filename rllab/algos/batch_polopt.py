@@ -3,7 +3,15 @@ from rllab.sampler import parallel_sampler
 from rllab.sampler.base import BaseSampler
 import rllab.misc.logger as logger
 import rllab.plotter as plotter
+from six.moves import cPickle
 from rllab.policies.base import Policy
+try:
+    import logz
+    from dynamics import NNDynamicsModel
+except:
+    pass
+
+import numpy as np
 
 
 class BatchSampler(BaseSampler):
@@ -19,13 +27,23 @@ class BatchSampler(BaseSampler):
     def shutdown_worker(self):
         parallel_sampler.terminate_task(scope=self.algo.scope)
 
-    def obtain_samples(self, itr):
+#Updated
+#dyn_model,policy,rau and HCMPC_Activation are added values to this method
+    def obtain_samples(self,dyn_model=None,itr=None,policy=None,rau=None,delta=0,constraint_fn=None,constraint_cost_fn=None,HCMPC_Activation=False,Constrained=False):
         cur_params = self.algo.policy.get_param_values()
         paths = parallel_sampler.sample_paths(
             policy_params=cur_params,
             max_samples=self.algo.batch_size,
+            dyn_model=dyn_model,
             max_path_length=self.algo.max_path_length,
             scope=self.algo.scope,
+            policy=policy,
+            rau=rau,
+            delta=delta,
+            constraint_fn=constraint_fn,
+            constraint_cost_fn=constraint_cost_fn,
+            HCMPC_Activation=HCMPC_Activation,
+            Constrained=Constrained,
         )
         if self.algo.whole_paths:
             return paths
@@ -56,7 +74,7 @@ class BatchPolopt(RLAlgorithm):
             pause_for_plot=False,
             center_adv=True,
             positive_adv=False,
-            store_paths=False,
+            store_paths=True,
             whole_paths=True,
             sampler_cls=None,
             sampler_args=None,
@@ -115,12 +133,68 @@ class BatchPolopt(RLAlgorithm):
     def train(self):
         self.start_worker()
         self.init_opt()
+        # logz.configure_output_dir("/home/hendawy/Desktop/HumonoidwithTRPOandMappingtojointangles\Trial1",13000)
         for itr in range(self.current_itr, self.n_itr):
             with logger.prefix('itr #%d | ' % itr):
                 paths = self.sampler.obtain_samples(itr)
-                samples_data = self.sampler.process_samples(itr, paths)
+                samples_data= self.sampler.process_samples(itr, paths)
                 self.log_diagnostics(paths)
-                self.optimize_policy(itr, samples_data)
+                optimization_data=self.optimize_policy(itr, samples_data)
+                logger.log("saving snapshot...")
+                params = self.get_itr_snapshot(itr, samples_data)
+                self.current_itr = itr + 1
+                params["algo"] = self
+                if self.store_paths:
+                    params["paths"] = samples_data["paths"]
+                logger.save_itr_params(itr, params)
+                opt_data=self.get_itr_snapshot(itr,samples_data)
+                values=opt_data["policy"].get_param_values()
+                print("Saving learned TF nn model parameters.")
+                f = open('/home/hendawy/Desktop/HumonoidwithTRPOandMappingtojointangles/Trial1/saver%i.save'%itr, 'wb')
+                cPickle.dump(values, f, protocol=cPickle.HIGHEST_PROTOCOL)
+                f.close()
+
+                logger.log("saved")
+                logger.dump_tabular(with_prefix=False)
+                if self.plot:
+                    self.update_plot()
+                    if self.pause_for_plot:
+                        input("Plotting evaluation run: Press Enter to "
+                                  "continue...")
+
+        self.shutdown_worker()
+
+    def train_mf(self):
+        self.start_worker()
+        self.init_opt()
+        logz.configure_output_dir("/home/hendawy/Desktop/2DOF_Robotic_Arm_withSphereObstacle/Rr",1807)
+        for itr in range(self.current_itr, self.n_itr):
+            with logger.prefix('itr #%d | ' % itr):
+                paths = self.sampler.obtain_samples(itr,Constrained=True)
+                samples_data,analysis_data = self.sampler.process_samples(itr, paths)
+                self.log_diagnostics(paths)
+                optimization_data=self.optimize_policy(itr, samples_data)
+                logz.log_tabular('Iteration', analysis_data["Iteration"])
+                # In terms of true environment reward of your rolled out trajectory using the MPC controller
+                logz.log_tabular('AverageDiscountedReturn',analysis_data["AverageDiscountedReturn"])
+                logz.log_tabular('AverageReturns', analysis_data["AverageReturn"])
+                logz.log_tabular('violation_cost', np.mean(samples_data["violation_cost"]))
+                logz.log_tabular('boundary_violation_cost', np.mean(samples_data["boundary_violation_cost"]))
+                logz.log_tabular('success_rate', samples_data["success_rate"])
+                logz.log_tabular('successful_AverageReturn', np.mean(samples_data["successful_AverageReturn"]))
+                logz.log_tabular('ExplainedVariance', analysis_data["ExplainedVariance"])
+                logz.log_tabular('NumTrajs', analysis_data["NumTrajs"])
+                logz.log_tabular('Entropy', analysis_data["Entropy"])
+                logz.log_tabular('Perplexity', analysis_data["Perplexity"])
+                logz.log_tabular('StdReturn', analysis_data["StdReturn"])
+                logz.log_tabular('MaxReturn', analysis_data["MaxReturn"])
+                logz.log_tabular('MinReturn', analysis_data["MinReturn"])
+                logz.log_tabular('LossBefore', optimization_data["LossBefore"])
+                logz.log_tabular('LossAfter', optimization_data["LossAfter"])
+                logz.log_tabular('MeanKLBefore', optimization_data["MeanKLBefore"])
+                logz.log_tabular('MeanKL', optimization_data["MeanKL"])
+                logz.log_tabular('dLoss', optimization_data["dLoss"])
+                logz.dump_tabular()
                 logger.log("saving snapshot...")
                 params = self.get_itr_snapshot(itr, samples_data)
                 self.current_itr = itr + 1
@@ -163,3 +237,67 @@ class BatchPolopt(RLAlgorithm):
     def update_plot(self):
         if self.plot:
             plotter.update_plot(self.policy, self.max_path_length)
+
+
+
+
+
+
+
+#constrained training function for HCMPC with:
+#dyn_model: the dynamical model that is trained in the Model-Based Stage
+#policy: the initial Model-Free policy
+#rau:exploration probability to achieve a faster learning performance
+#logdir_HCMPC: directory for HCMPC results
+#logdir_HCMPC: log file number
+#For My local machine---------> "/home/hendawy/Desktop/2DOF_Robotic_Arm_withSphereObstacle/Rr"
+    # def constrained_train(self,dyn_model,logdir_HCMPC,file_number,policy=None,rau=None):
+    #     self.start_worker()
+    #     self.init_opt()
+    #     logz.configure_output_dir(logdir_HCMPC,file_number)
+    #     for itr in range(self.current_itr, self.n_itr):
+    #             paths = self.sampler.obtain_samples(dyn_model,itr,policy,rau)
+    #             samples_data,analysis_data = self.sampler.process_samples(itr, paths)
+    #             self.log_diagnostics(paths)
+    #             optimization_data=self.optimize_policy(itr, samples_data)
+    #             if(rau<=0.05):
+    #                 rau=0
+    #             else:
+    #                 rau-=0.02
+    #             logz.log_tabular('Iteration', analysis_data["Iteration"])
+    #             # In terms of true environment reward of your rolled out trajectory using the MPC controller
+    #             logz.log_tabular('AverageDiscountedReturn',analysis_data["AverageDiscountedReturn"])
+    #             logz.log_tabular('AverageReturns', analysis_data["AverageReturn"])
+    #             logz.log_tabular('violation_cost', np.mean(samples_data["violation_cost"]))
+    #             logz.log_tabular('boundary_violation_cost', np.mean(samples_data["boundary_violation_cost"]))
+    #             logz.log_tabular('success_rate', samples_data["success_rate"])
+    #             logz.log_tabular('successful_AverageReturn', np.mean(samples_data["successful_AverageReturn"]))
+    #             logz.log_tabular('ExplainedVariance', analysis_data["ExplainedVariance"])
+    #             logz.log_tabular('NumTrajs', analysis_data["NumTrajs"])
+    #             logz.log_tabular('Entropy', analysis_data["Entropy"])
+    #             logz.log_tabular('Perplexity', analysis_data["Perplexity"])
+    #             logz.log_tabular('StdReturn', analysis_data["StdReturn"])
+    #             logz.log_tabular('MaxReturn', analysis_data["MaxReturn"])
+    #             logz.log_tabular('MinReturn', analysis_data["MinReturn"])
+    #             logz.log_tabular('LossBefore', optimization_data["LossBefore"])
+    #             logz.log_tabular('LossAfter', optimization_data["LossAfter"])
+    #             logz.log_tabular('MeanKLBefore', optimization_data["MeanKLBefore"])
+    #             logz.log_tabular('MeanKL', optimization_data["MeanKL"])
+    #             logz.log_tabular('dLoss', optimization_data["dLoss"])
+    #             logz.dump_tabular()
+    #             logger.log("saving snapshot...")
+    #             params = self.get_itr_snapshot(itr, samples_data)
+    #             self.current_itr = itr + 1
+    #             params["algo"] = self
+    #             if self.store_paths:
+    #                 params["paths"] = samples_data["paths"]
+    #             logger.save_itr_params(itr, params)
+    #             logger.log("saved")
+    #             logger.dump_tabular(with_prefix=False)
+    #             if self.plot:
+    #                 self.update_plot()
+    #                 if self.pause_for_plot:
+    #                     input("Plotting evaluation run: Press Enter to "
+    #                               "continue...")
+
+    #     self.shutdown_worker()

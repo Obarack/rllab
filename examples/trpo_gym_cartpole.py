@@ -6,6 +6,7 @@ from rllab.misc.instrument import run_experiment_lite
 from rllab.policies.categorical_mlp_policy import CategoricalMLPPolicy
 
 
+
 def run_task(*_):
     # Please note that different environments with different action spaces may
     # require different policies. For example with a Discrete action space, a
@@ -16,7 +17,7 @@ def run_task(*_):
     policy = CategoricalMLPPolicy(
         env_spec=env.spec,
         # The neural network policy should have two hidden layers, each with 32 hidden units.
-        hidden_sizes=(32, 32)
+        hidden_sizes=(32,32)
     )
 
     baseline = LinearFeatureBaseline(env_spec=env.spec)
@@ -25,13 +26,13 @@ def run_task(*_):
         env=env,
         policy=policy,
         baseline=baseline,
-        batch_size=4000,
-        max_path_length=env.horizon,
-        n_itr=50,
-        discount=0.99,
-        step_size=0.01,
+        batch_size=5000,
+        max_path_length=50,z
+        n_itr=100,
+        discount=0.995,
+        step_size=0.05,
         # Uncomment both lines (this and the plot parameter below) to enable plotting
-        # plot=True,
+         plot=True,
     )
     algo.train()
 
@@ -45,5 +46,5 @@ run_experiment_lite(
     # Specifies the seed for the experiment. If this is not provided, a random seed
     # will be used
     seed=1,
-    # plot=True,
+    plot=True,
 )

@@ -35,7 +35,6 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         return self.model.data.com_subtree[idx]
 
     def step(self, action):
-        #xposbefore = self.model.data.qpos[0, 0]
         self.forward_dynamics(action)
         next_obs = self.get_current_obs()
         action = np.clip(action, *self.action_bounds)
@@ -43,12 +42,6 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         run_cost = -1 * self.get_body_comvel("torso")[0]
         cost = ctrl_cost + run_cost
         reward = -cost
-        '''
-        xposafter = self.model.data.qpos[0, 0]
-        reward_ctrl = - 0.1 * np.square(action).sum()
-        reward_run = (xposafter - xposbefore)/self.dt
-        reward = reward_ctrl + reward_run
-        '''
         done = False
         return Step(next_obs, reward, done)
 
@@ -62,6 +55,3 @@ class HalfCheetahEnv(MujocoEnv, Serializable):
         logger.record_tabular('MaxForwardProgress', np.max(progs))
         logger.record_tabular('MinForwardProgress', np.min(progs))
         logger.record_tabular('StdForwardProgress', np.std(progs))
-
-    def dt(self):
-        return self.model.opt.timestep * self.frame_skip
